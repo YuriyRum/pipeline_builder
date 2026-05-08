@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0f0f0e;
+  --surface:  #1a1a18;
+  --surface2: #242422;
+  --border:   rgba(255,255,255,0.08);
+  --border2:  rgba(255,255,255,0.14);
+  --text:     #e8e5dc;
+  --muted:    #7a7872;
+  --green:    #1D9E75;
+  --green2:   #9FE1CB;
+  --amber:    #F5A623;
+  --blue:     #4A90D9;
+  --red:      #E05252;
+  --font-ui:  'DM Sans', sans-serif;
+  --font-mono:'IBM Plex Mono', monospace;
+  --r:        8px;
+  --r-lg:     12px;
+}
+
+html, body, #root {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  overflow: hidden;
+}
+
+.react-flow__renderer { background: var(--bg) !important; }
+.react-flow__background { background: var(--bg) !important; }
+.react-flow__edge-path { stroke-width: 2 !important; }
+
+.react-flow__controls {
+  background: var(--surface) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: var(--r) !important;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  fill: var(--muted) !important;
+}
+.react-flow__controls-button:hover {
+  background: var(--surface2) !important;
+  fill: var(--text) !important;
+}
+.react-flow__minimap {
+  background: var(--surface) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: var(--r) !important;
+}
+.react-flow__handle {
+  width: 10px !important;
+  height: 10px !important;
+  border: 2px solid var(--surface) !important;
+  background: var(--muted) !important;
+  transition: background 0.15s, transform 0.15s !important;
+}
+.react-flow__handle:hover,
+.react-flow__handle-connecting { background: var(--green) !important; transform: scale(1.4) !important; }
+.react-flow__handle-valid { background: var(--green) !important; }
+.react-flow__connection-line { stroke: var(--green) !important; stroke-width: 2 !important; stroke-dasharray: 6 4 !important; }
+.react-flow__edge.selected .react-flow__edge-path { stroke: var(--amber) !important; }
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 8 5;
+  animation: flowDash 0.5s linear infinite;
+}
+@keyframes flowDash { to { stroke-dashoffset: -13; } }
+
+.edge-delete-btn { cursor: pointer; pointer-events: all; }
+.edge-delete-btn circle { fill: var(--surface2); stroke: var(--border2); transition: fill 0.15s; }
+.edge-delete-btn text { fill: var(--red); font-size: 10px; font-weight: 700; dominant-baseline: central; text-anchor: middle; }
+.edge-delete-btn:hover circle { fill: var(--red); }
+.edge-delete-btn:hover text { fill: white; }
