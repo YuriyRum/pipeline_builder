@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactFlow, {
   Background, Controls, MiniMap,
   addEdge, applyNodeChanges, applyEdgeChanges,
@@ -6,101 +6,104 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
-import PipelineNode from './PipelineNode'
-import GroupNode    from './GroupNode'
-import PipelineEdge from './PipelineEdge'
-import NodePalette  from './NodePalette'
+import PipelineNode  from './PipelineNode'
+import GroupNode     from './GroupNode'
+import PipelineEdge  from './PipelineEdge'
+import NodePalette   from './NodePalette'
+import CatalogModal  from './CatalogModal'
+import { NODE_DEFS } from './nodes/registry.js'
+import { savePipeline } from './pipelineStore.js'
+import { PRESETS } from './presets.js'
 
 const nodeTypes = { pipeline: PipelineNode, group: GroupNode }
 const edgeTypes = { pipeline: PipelineEdge }
 
-let uid = 100
+let uid = 200
 const uid_ = () => `n${uid++}`
 
-const mkEdge = (id, source, target, animated, buildMode, onDelete) => ({
+/* ── edge factory ─────────────────────────────────────────── */
+const mkEdge = (id, source, target, animated = false, buildMode = false, onDelete = null) => ({
   id, source, target, type: 'pipeline',
   markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14,
     color: animated ? '#1D9E75' : 'rgba(255,255,255,0.2)' },
   data: { animated, buildMode, onDelete },
 })
 
-const INIT_NODES = [
-  { id:'g1', type:'group', position:{x:20,y:20}, style:{width:240,height:280},
-    data:{label:'Data ingestion',bg:'rgba(74,144,217,0.07)',border:'#4A90D9',labelColor:'#4A90D9'}},
-  { id:'g2', type:'group', position:{x:300,y:20}, style:{width:280,height:280},
-    data:{label:'Processing',bg:'rgba(29,158,117,0.07)',border:'#1D9E75',labelColor:'#1D9E75'}},
-  { id:'g3', type:'group', position:{x:20,y:340}, style:{width:560,height:220},
-    data:{label:'Output',bg:'rgba(245,166,35,0.07)',border:'#F5A623',labelColor:'#F5A623'}},
-  { id:'n1', type:'pipeline', position:{x:50,y:80},
-    data:{title:'File source',icon:'📂',iconBg:'#1a2d3a',status:'idle',controls:[
-      {type:'toggle',label:'Watch dir',key:'watch',val:true},
-      {type:'select',label:'Format',key:'fmt',val:'CSV',opts:['CSV','JSON','Parquet']},
-    ]}},
-  { id:'n2', type:'pipeline', position:{x:50,y:210},
-    data:{title:'API stream',icon:'🌐',iconBg:'#1a2d3a',status:'idle',controls:[
-      {type:'toggle',label:'Enabled',key:'enabled',val:false},
-      {type:'checkbox',label:'Auth token',key:'auth',val:true},
-    ]}},
-  { id:'n3', type:'pipeline', position:{x:330,y:60},
-    data:{title:'Transformer',icon:'⚙️',iconBg:'#1a3028',status:'idle',controls:[
-      {type:'select',label:'Mode',key:'mode',val:'Normalize',opts:['Normalize','Scale','Encode']},
-      {type:'checkbox',label:'Drop nulls',key:'nulls',val:true},
-      {type:'checkbox',label:'Dedupe',key:'dup',val:false},
-    ]}},
-  { id:'n4', type:'pipeline', position:{x:330,y:200},
-    data:{title:'Validator',icon:'✅',iconBg:'#1e2e1a',status:'idle',controls:[
-      {type:'toggle',label:'Strict mode',key:'strict',val:true},
-      {type:'select',label:'Schema',key:'schema',val:'v2',opts:['v1','v2','v3']},
-    ]}},
-  { id:'n5', type:'pipeline', position:{x:50,y:380},
-    data:{title:'Output DB',icon:'💾',iconBg:'#2e2516',status:'idle',controls:[
-      {type:'select',label:'Target',key:'db',val:'Postgres',opts:['Postgres','MySQL','Mongo']},
-      {type:'toggle',label:'Batch write',key:'batch',val:true},
-    ]}},
-  { id:'n6', type:'pipeline', position:{x:340,y:380},
-    data:{title:'Notifier',icon:'🔔',iconBg:'#2e2516',status:'idle',controls:[
-      {type:'checkbox',label:'Email',key:'email',val:true},
-      {type:'checkbox',label:'Slack',key:'slack',val:false},
-      {type:'toggle',label:'On error only',key:'eronly',val:false},
-    ]}},
-]
+/* ── topological sort ─────────────────────────────────────── */
+function buildExecutionPlan(nodes, edges) {
+  const pnodes = nodes.filter(n => n.type === 'pipeline')
+  const pids   = new Set(pnodes.map(n => n.id))
+  const pedges = edges.filter(e => pids.has(e.source) && pids.has(e.target))
+  const inDeg  = {}; const adjOut = {}
+  pnodes.forEach(n => { inDeg[n.id] = 0; adjOut[n.id] = [] })
+  pedges.forEach(e => { inDeg[e.target] = (inDeg[e.target]||0)+1; adjOut[e.source].push(e.target) })
+  const waves = []; let queue = pnodes.filter(n=>inDeg[n.id]===0).map(n=>n.id)
+  while (queue.length > 0) {
+    waves.push({ nodeIds:[...queue], edgeIds: pedges.filter(e=>queue.includes(e.target)).map(e=>e.id) })
+    const next = []
+    queue.forEach(nid => adjOut[nid].forEach(tid => { if(--inDeg[tid]===0) next.push(tid) }))
+    queue = next
+  }
+  return waves
+}
 
-const INIT_EDGES_RAW = [
-  {id:'e1',source:'n1',target:'n3'},
-  {id:'e2',source:'n2',target:'n3'},
-  {id:'e3',source:'n3',target:'n4'},
-  {id:'e4',source:'n4',target:'n5'},
-  {id:'e4b',source:'n3',target:'n5'},
-  {id:'e5',source:'n4',target:'n6'},
-  {id:'e6',source:'n5',target:'n6'},
-]
+const delay = ms => new Promise(r => setTimeout(r, ms))
 
+/* ── hydrate a saved/preset pipeline into live ReactFlow state ── */
+function hydratePipeline(pipeline, onDelNode, onDelEdge) {
+  const nodes = pipeline.nodes.map(n => ({
+    ...n,
+    data: { ...n.data, status:'idle', lastOutput:null, _progress:0,
+      buildMode: false, onDelete: onDelNode },
+  }))
+  const edges = pipeline.edges.map(e => mkEdge(e.id, e.source, e.target, false, false, onDelEdge))
+  return { nodes, edges }
+}
+
+/* ── initial graph = CSV pipeline preset ─────────────────── */
+const INITIAL_PRESET = PRESETS[0]  // "CSV / XLSX → Table"
+
+/* ─────────────────────────────────────────────────────────── */
 export default function App() {
-  const [buildMode, setBuildMode] = useState(false)
-  const [running, setRunning]     = useState(false)
-  const [log, setLog]             = useState([{msg:'Idle — press Run',type:'info'}])
-  const [nodes, setNodes]         = useState(INIT_NODES)
-  const [edges, setEdges]         = useState(() =>
-    INIT_EDGES_RAW.map(e => mkEdge(e.id,e.source,e.target,false,false,null))
-  )
+  const [buildMode,    setBuildMode]    = useState(false)
+  const [running,      setRunning]      = useState(false)
+  const [log,          setLog]          = useState([{msg:'Idle — press Run',type:'info'}])
+  const [nodes,        setNodes]        = useState([])
+  const [edges,        setEdges]        = useState([])
+  const [showCatalog,  setShowCatalog]  = useState(false)
+  const [pipelineName, setPipelineName] = useState('')
+
   const runAbort = useRef(false)
+  const nodesRef = useRef(nodes)
+  const edgesRef = useRef(edges)
+  useEffect(() => { nodesRef.current = nodes }, [nodes])
+  useEffect(() => { edgesRef.current = edges }, [edges])
 
-  const onNodesChange = useCallback(c => setNodes(n => applyNodeChanges(c,n)),[])
-  const onEdgesChange = useCallback(c => setEdges(e => applyEdgeChanges(c,e)),[])
-
-  const onDelEdge = useCallback((id) => setEdges(eds => eds.filter(e => e.id !== id)),[])
-  const onDelNode = useCallback((id) => {
+  // ── delete handlers (stable refs needed for hydration) ──
+  const onDelEdge = useCallback(id => setEdges(eds => eds.filter(e => e.id !== id)), [])
+  const onDelNode = useCallback(id => {
     setNodes(nds => nds.filter(n => n.id !== id))
     setEdges(eds => eds.filter(e => e.source !== id && e.target !== id))
-  },[])
+  }, [])
 
-  const onConnect = useCallback((params) => {
+  // Load initial preset on mount
+  useEffect(() => {
+    const { nodes: n, edges: e } = hydratePipeline(INITIAL_PRESET, onDelNode, onDelEdge)
+    setNodes(n); setEdges(e)
+    setPipelineName(INITIAL_PRESET.name)
+  }, []) // eslint-disable-line
+
+  /* ── ReactFlow ── */
+  const onNodesChange = useCallback(c => setNodes(n => applyNodeChanges(c, n)), [])
+  const onEdgesChange = useCallback(c => setEdges(e => applyEdgeChanges(c, e)), [])
+
+  const onConnect = useCallback(params => {
     setEdges(eds => addEdge({
       ...params, type:'pipeline', id:`e${Date.now()}`,
       markerEnd:{type:MarkerType.ArrowClosed,width:14,height:14,color:'rgba(255,255,255,0.2)'},
-      data:{animated:false,buildMode:true,onDelete:onDelEdge}
+      data:{animated:false,buildMode:true,onDelete:onDelEdge},
     }, eds))
-  },[onDelEdge])
+  }, [onDelEdge])
 
   const toggleBuild = useCallback(() => {
     setBuildMode(bm => {
@@ -109,128 +112,234 @@ export default function App() {
       setEdges(eds => eds.map(e => ({...e,data:{...e.data,buildMode:next,onDelete:onDelEdge}})))
       return next
     })
-  },[onDelNode,onDelEdge])
+  }, [onDelNode, onDelEdge])
 
-  const onAddNode = useCallback((tmpl) => {
-    const id = uid_()
+  /* ── add node from palette ── */
+  const onAddNode = useCallback(tmpl => {
     if (tmpl.type === 'group') {
       setNodes(nds => [...nds, {
-        id, type:'group',
-        position:{x:60+Math.random()*120, y:60+Math.random()*80},
+        id:uid_(), type:'group',
+        position:{x:80+Math.random()*100,y:80+Math.random()*80},
         style:{width:260,height:200},
         data:{label:tmpl.gLabel,bg:tmpl.bg,border:tmpl.border,labelColor:tmpl.lc,buildMode:true,onDelete:onDelNode},
       }])
     } else {
       setNodes(nds => [...nds, {
-        id, type:'pipeline',
-        position:{x:200+Math.random()*200, y:150+Math.random()*150},
-        data:{...tmpl,status:'idle',buildMode:true,onDelete:onDelNode},
+        id:uid_(), type:'pipeline',
+        position:{x:180+Math.random()*200,y:120+Math.random()*160},
+        data:{
+          nodeDefId:  tmpl.id,
+          title:      tmpl.title,
+          icon:       tmpl.icon,
+          iconBg:     tmpl.iconBg,
+          status:     'idle', lastOutput:null,
+          controls:   tmpl.defaultControls.map(c=>({...c})),
+          buildMode:  true, onDelete: onDelNode,
+        },
       }])
     }
-  },[onDelNode])
+  }, [onDelNode])
 
-  const addLog = (msg,type) => setLog(l => [...l.slice(-7),{msg,type}])
+  /* ── catalog: save ── */
+  const handleSave = useCallback(name => {
+    savePipeline(name, nodesRef.current, edgesRef.current)
+    setPipelineName(name)
+  }, [])
 
-  const setNodeStatus = useCallback((id,status) =>
-    setNodes(nds => nds.map(n => n.id===id ? {...n,data:{...n.data,status}} : n))
+  /* ── catalog: load ── */
+  const handleLoad = useCallback(pipeline => {
+    runAbort.current = true
+    setRunning(false)
+    setBuildMode(false)
+    const { nodes: n, edges: e } = hydratePipeline(pipeline, onDelNode, onDelEdge)
+    setNodes(n); setEdges(e)
+    setPipelineName(pipeline.name)
+    setLog([{msg:`Loaded "${pipeline.name}"`,type:'info'}])
+  }, [onDelNode, onDelEdge])
+
+  /* ── run helpers ── */
+  const addLog = useCallback((msg,type) => setLog(l=>[...l.slice(-13),{msg,type}]),[])
+
+  const setNodeField = useCallback((id,patch) =>
+    setNodes(nds=>nds.map(n=>n.id===id?{...n,data:{...n.data,...patch}}:n))
   ,[])
 
-  const animEdges = useCallback((ids,on) => {
-    setEdges(eds => eds.map(e => ids.includes(e.id)
-      ? {...e, data:{...e.data,animated:on},
+  const animEdges = useCallback((ids,on)=>{
+    setEdges(eds=>eds.map(e=>ids.includes(e.id)
+      ?{...e,data:{...e.data,animated:on},
           markerEnd:{type:MarkerType.ArrowClosed,width:14,height:14,color:on?'#1D9E75':'rgba(255,255,255,0.2)'}}
-      : e
+      :e
     ))
   },[])
 
-  const delay = ms => new Promise(r => setTimeout(r,ms))
-
+  /* ── DYNAMIC RUN ── */
   const startRun = useCallback(async () => {
     if (running) return
-    setRunning(true)
-    runAbort.current = false
-    setLog([])
-    const SEQ = [
-      {nodes:['n1','n2'],edges:['e1','e2'],label:'Ingesting data…'},
-      {nodes:['n3'],edges:['e3','e4b'],label:'Transforming…'},
-      {nodes:['n4'],edges:['e4','e5'],label:'Validating…'},
-      {nodes:['n5','n6'],edges:['e6'],label:'Writing output…'},
-    ]
-    INIT_NODES.filter(n=>n.type==='pipeline').forEach(n=>setNodeStatus(n.id,'idle'))
-    for (const step of SEQ) {
+    setRunning(true); runAbort.current = false; setLog([])
+    const currentNodes = nodesRef.current
+    const currentEdges = edgesRef.current
+
+    setNodes(nds=>nds.map(n=>n.type==='pipeline'
+      ?{...n,data:{...n.data,status:'idle',lastOutput:null,_progress:0}}:n))
+    await delay(80)
+
+    const waves = buildExecutionPlan(currentNodes, currentEdges)
+    if (!waves.length) { addLog('No executable nodes found','info'); setRunning(false); return }
+
+    const pipeCount = currentNodes.filter(n=>n.type==='pipeline').length
+    addLog(`Pipeline: ${waves.length} stage(s), ${pipeCount} node(s)`,'info')
+
+    const outputs = {}
+
+    for (let wi=0; wi<waves.length; wi++) {
       if (runAbort.current) break
-      addLog(step.label,'info')
-      step.nodes.forEach(id=>setNodeStatus(id,'running'))
-      animEdges(step.edges,true)
-      await delay(1400)
-      step.nodes.forEach(id=>setNodeStatus(id,'done'))
-      animEdges(step.edges,false)
-      addLog('✓ '+step.label.replace('…',' done'),'ok')
-      await delay(300)
+      const wave = waves[wi]
+      if (wave.edgeIds.length) animEdges(wave.edgeIds, true)
+
+      const getInput = nodeId => {
+        const inEdge = currentEdges.find(e=>e.target===nodeId && outputs[e.source]!=null)
+        return inEdge ? outputs[inEdge.source] : null
+      }
+
+      const wavePromises = wave.nodeIds.map(async nodeId => {
+        const snap    = nodesRef.current.find(n=>n.id===nodeId)
+        if (!snap) return
+        const def     = NODE_DEFS[snap.data.nodeDefId]
+        const label   = snap.data.title ?? nodeId
+        setNodeField(nodeId, {status:'running'})
+
+        if (!def?.run) {
+          addLog(`⊘ ${label} — no run()`, 'info')
+          setNodeField(nodeId, {status:'done',lastOutput:'pass-through'})
+          return
+        }
+
+        const abortCtrl = new AbortController()
+        const check = setInterval(()=>{ if(runAbort.current) abortCtrl.abort() },100)
+
+        try {
+          const result = await def.run(
+            {...snap.data},
+            {
+              log: msg=>addLog(`[${label}] ${msg}`,'info'),
+              signal: abortCtrl.signal,
+              input: getInput(nodeId),
+              setNodeData: patch=>setNodeField(nodeId,patch),
+            }
+          )
+          clearInterval(check)
+          if (result.ok) {
+            outputs[nodeId] = result.output ?? null
+            setNodeField(nodeId, {status:'done',lastOutput:result.message??'ok'})
+          } else {
+            setNodeField(nodeId, {status:'error',lastOutput:result.message??'error'})
+            addLog(`✗ ${label}: ${result.message??'failed'}`,'error')
+          }
+        } catch(err) {
+          clearInterval(check)
+          setNodeField(nodeId, {status:'error',lastOutput:err.message})
+          addLog(`✗ ${label}: ${err.message}`,'error')
+        }
+      })
+
+      await Promise.all(wavePromises)
+      if (wave.edgeIds.length) animEdges(wave.edgeIds, false)
+      const stageLabel = wave.nodeIds.map(id=>currentNodes.find(n=>n.id===id)?.data?.title??id).join(', ')
+      addLog(`✓ Stage ${wi+1} (${stageLabel})`,'ok')
+      await delay(200)
     }
     setRunning(false)
-  },[running,setNodeStatus,animEdges])
+  }, [running, setNodeField, animEdges, addLog])
 
-  const resetAll = useCallback(() => {
-    runAbort.current = true
-    setRunning(false)
-    setNodes(nds => nds.map(n => n.type==='pipeline' ? {...n,data:{...n.data,status:'idle'}} : n))
-    setEdges(eds => eds.map(e => ({...e,data:{...e.data,animated:false},
+  /* ── reset ── */
+  const resetAll = useCallback(()=>{
+    runAbort.current = true; setRunning(false)
+    setNodes(nds=>nds.map(n=>n.type==='pipeline'?{...n,data:{...n.data,status:'idle',lastOutput:null,_progress:0}}:n))
+    setEdges(eds=>eds.map(e=>({...e,data:{...e.data,animated:false},
       markerEnd:{type:MarkerType.ArrowClosed,width:14,height:14,color:'rgba(255,255,255,0.2)'}})))
     setLog([{msg:'Idle — press Run',type:'info'}])
   },[])
 
+  /* ── render ── */
   return (
     <div style={{display:'flex',flexDirection:'column',width:'100%',height:'100%'}}>
-      {/* Topbar */}
-      <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 18px',
-        background:'var(--surface)',borderBottom:'1px solid var(--border2)',flexShrink:0}}>
-        <div style={{fontFamily:'var(--font-mono)',fontSize:14,fontWeight:500,
-          letterSpacing:'0.04em',color:'var(--green2)'}}>⬡ Pipeline Builder</div>
-        <div style={{flex:1}}/>
+
+      {/* ── Top bar ── */}
+      <div style={{
+        display:'flex', alignItems:'center', gap:10, padding:'8px 16px',
+        background:'var(--surface)', borderBottom:'1px solid var(--border2)', flexShrink:0,
+      }}>
+        <div style={{fontFamily:'var(--font-mono)',fontSize:14,fontWeight:500,color:'var(--green2)',flexShrink:0}}>
+          ⬡ Pipeline Builder
+        </div>
+
+        {/* Pipeline name badge */}
+        {pipelineName && (
+          <div style={{
+            fontSize:11, color:'var(--muted)', fontFamily:'var(--font-mono)',
+            background:'var(--surface2)', border:'1px solid var(--border)',
+            borderRadius:999, padding:'3px 10px', maxWidth:200,
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+          }}>{pipelineName}</div>
+        )}
+
+        <div style={{flex:1}} />
+
+        {/* Catalog button */}
+        <button onClick={()=>setShowCatalog(true)} disabled={running} style={{
+          display:'flex', alignItems:'center', gap:5,
+          padding:'6px 13px', borderRadius:999,
+          background:'var(--surface2)', border:'1px solid var(--border2)',
+          color:'var(--text)', fontSize:12, cursor:running?'not-allowed':'pointer',
+          fontFamily:'var(--font-ui)', opacity:running?0.5:1,
+        }}>📁 Catalog</button>
+
+        {/* Build / View toggle */}
         <button onClick={toggleBuild} disabled={running} style={{
-          display:'flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:999,
-          background:buildMode?'rgba(245,166,35,0.15)':'var(--surface2)',
+          display:'flex', alignItems:'center', gap:5,
+          padding:'6px 13px', borderRadius:999,
+          background: buildMode?'rgba(245,166,35,0.15)':'var(--surface2)',
           border:`1px solid ${buildMode?'rgba(245,166,35,0.4)':'var(--border2)'}`,
-          color:buildMode?'var(--amber)':'var(--muted)',
-          fontSize:12,fontWeight:500,cursor:running?'not-allowed':'pointer',
-          fontFamily:'var(--font-ui)',transition:'all 0.2s',opacity:running?0.5:1,
-        }}>
-          <span>{buildMode?'🔧':'👁️'}</span>
-          {buildMode?'Build mode':'View mode'}
-        </button>
+          color: buildMode?'var(--amber)':'var(--muted)',
+          fontSize:12, fontWeight:500, cursor:running?'not-allowed':'pointer',
+          fontFamily:'var(--font-ui)', transition:'all 0.2s', opacity:running?0.5:1,
+        }}>{buildMode?'🔧 Build':'👁️ View'}</button>
+
+        {/* Run */}
         <button onClick={startRun} disabled={running||buildMode} style={{
-          display:'flex',alignItems:'center',gap:6,padding:'7px 18px',borderRadius:999,
-          background:running||buildMode?'var(--surface2)':'var(--green)',
+          display:'flex', alignItems:'center', gap:5,
+          padding:'7px 18px', borderRadius:999,
+          background: running||buildMode?'var(--surface2)':'var(--green)',
           border:'1px solid transparent',
-          color:running||buildMode?'var(--muted)':'white',
-          fontSize:13,fontWeight:500,
+          color: running||buildMode?'var(--muted)':'white',
+          fontSize:13, fontWeight:500,
           cursor:running||buildMode?'not-allowed':'pointer',
-          fontFamily:'var(--font-ui)',transition:'all 0.2s',
+          fontFamily:'var(--font-ui)', transition:'all 0.2s',
         }}>{running?'⏳ Running…':'▶ Run pipeline'}</button>
+
+        {/* Reset */}
         <button onClick={resetAll} style={{
-          padding:'7px 14px',borderRadius:999,background:'none',
-          border:'1px solid var(--border2)',color:'var(--muted)',fontSize:12,
-          cursor:'pointer',fontFamily:'var(--font-ui)',
+          padding:'7px 13px', borderRadius:999, background:'none',
+          border:'1px solid var(--border2)', color:'var(--muted)',
+          fontSize:12, cursor:'pointer', fontFamily:'var(--font-ui)',
         }}>↺ Reset</button>
       </div>
 
-      {/* Body */}
+      {/* ── Body ── */}
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
-        {buildMode && <NodePalette onAddNode={onAddNode}/>}
+        {buildMode && <NodePalette onAddNode={onAddNode} />}
+
         <div style={{flex:1,position:'relative'}}>
           <ReactFlow
             nodes={nodes} edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
             onConnect={buildMode?onConnect:undefined}
             nodeTypes={nodeTypes} edgeTypes={edgeTypes}
-            nodesDraggable={true}
-            nodesConnectable={buildMode}
+            nodesDraggable={true} nodesConnectable={buildMode}
             elementsSelectable={true}
             deleteKeyCode={buildMode?'Backspace':null}
-            fitView fitViewOptions={{padding:0.2}}
-            minZoom={0.3} maxZoom={2}
+            fitView fitViewOptions={{padding:0.18}}
+            minZoom={0.25} maxZoom={2.5}
           >
             <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(255,255,255,0.07)"/>
             <Controls/>
@@ -238,47 +347,59 @@ export default function App() {
               nodeColor={n=>{
                 if(n.type==='group') return 'rgba(255,255,255,0.05)'
                 const s=n.data?.status
-                return s==='done'?'#1D9E75':s==='running'?'#5DCAA5':'#3a3a38'
+                return s==='done'?'#1D9E75':s==='running'?'#5DCAA5':s==='error'?'#E05252':'#3a3a38'
               }}
-              maskColor="rgba(15,15,14,0.6)"
-              style={{bottom:80}}
+              maskColor="rgba(15,15,14,0.6)" style={{bottom:80}}
             />
           </ReactFlow>
 
+          {/* Build mode hint */}
           {buildMode && (
             <div style={{
-              position:'absolute',bottom:16,left:'50%',transform:'translateX(-50%)',
-              background:'rgba(245,166,35,0.1)',border:'1px solid rgba(245,166,35,0.25)',
-              borderRadius:999,padding:'6px 16px',fontSize:12,color:'var(--amber)',
-              fontFamily:'var(--font-mono)',pointerEvents:'none',whiteSpace:'nowrap',
+              position:'absolute', bottom:16, left:'50%', transform:'translateX(-50%)',
+              background:'rgba(245,166,35,0.1)', border:'1px solid rgba(245,166,35,0.25)',
+              borderRadius:999, padding:'6px 16px', fontSize:12, color:'var(--amber)',
+              fontFamily:'var(--font-mono)', pointerEvents:'none', whiteSpace:'nowrap',
             }}>
-              Drag to move · Handle→Handle to connect · × to delete · Backspace to remove selected
+              Drag to move · Handle→Handle to connect · × to delete · Backspace removes selected
             </div>
           )}
 
+          {/* Activity log */}
           {!buildMode && (
             <div style={{
-              position:'absolute',top:12,right:12,width:200,maxHeight:170,
-              background:'var(--surface)',border:'1px solid var(--border2)',
-              borderRadius:'var(--r)',overflow:'hidden',zIndex:10,
+              position:'absolute', top:12, right:12, width:230, maxHeight:220,
+              background:'var(--surface)', border:'1px solid var(--border2)',
+              borderRadius:8, overflow:'hidden', zIndex:10,
             }}>
-              <div style={{padding:'7px 10px 5px',fontSize:10,fontWeight:600,
-                letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--muted)',
-                fontFamily:'var(--font-mono)',borderBottom:'1px solid var(--border)'}}>
-                Activity log
-              </div>
-              <div style={{padding:'4px 10px 8px',overflow:'auto',maxHeight:130}}>
+              <div style={{
+                padding:'7px 10px 5px', fontSize:10, fontWeight:600,
+                letterSpacing:'0.08em', textTransform:'uppercase',
+                color:'var(--muted)', fontFamily:'var(--font-mono)',
+                borderBottom:'1px solid var(--border)',
+              }}>Activity log</div>
+              <div style={{padding:'4px 10px 8px',overflow:'auto',maxHeight:175}}>
                 {log.map((l,i)=>(
-                  <div key={i} style={{fontSize:11,lineHeight:1.7,
-                    color:l.type==='ok'?'var(--green)':'var(--muted)'}}>
-                    {l.msg}
-                  </div>
+                  <div key={i} style={{
+                    fontSize:11, lineHeight:1.7,
+                    color:l.type==='ok'?'var(--green)':l.type==='error'?'var(--red)':'var(--muted)',
+                  }}>{l.msg}</div>
                 ))}
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* ── Catalog Modal ── */}
+      {showCatalog && (
+        <CatalogModal
+          onClose={()=>setShowCatalog(false)}
+          onLoad={handleLoad}
+          onSave={handleSave}
+          currentName={pipelineName}
+        />
+      )}
     </div>
   )
 }
