@@ -11,6 +11,19 @@ const FilterNode = {
   icon:   '🔍',
   iconBg: '#1e2414',
   group:  'processing',
+  doc: `Filters rows based on a simple condition applied to a chosen field.
+
+## Conditions
+- > 0: keeps rows where the field is a positive number.
+- != null: keeps rows where the field has a value.
+- custom: placeholder for a future expression parser.
+
+## Controls
+- Invert: negates the condition (NOT filter).`,
+  inputType:  'dataset',
+  outputType: 'dataset',
+  resultType: 'stats',
+
 
   defaultControls: [
     { type: 'select',   label: 'Condition', key: 'cond',   val: '> 0',    opts: ['> 0', '!= null', 'custom'] },

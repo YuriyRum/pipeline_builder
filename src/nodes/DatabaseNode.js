@@ -11,6 +11,19 @@ const DatabaseNode = {
   icon:   '🗄️',
   iconBg: '#1f1a30',
   group:  'ingestion',
+  doc: `Connects to a SQL or NoSQL database and fetches rows.
+
+## Modes
+- Query: run a SELECT statement.
+- CDC: Change-Data-Capture streaming.
+- Full dump: export the whole table.
+
+## Notes
+SSL is recommended for production connections.`,
+  inputType:  'none',
+  outputType: 'rows',
+  resultType: 'stats',
+
 
   defaultControls: [
     { type: 'select',   label: 'Driver',  key: 'driver', val: 'Postgres', opts: ['Postgres', 'MySQL', 'SQLite', 'MongoDB'] },

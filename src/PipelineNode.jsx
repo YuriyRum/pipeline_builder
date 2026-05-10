@@ -1,12 +1,8 @@
 /**
  * PipelineNode — ReactFlow custom node wrapper.
- *
- * Merges the registry definition's renderBody into data before
- * passing to the shared NodeCard shell.
- *
- * For nodes that use _renderBodyFactory (e.g. FileUploadNode),
- * we bind nodeId and setNodes into the factory so the custom body
- * can write back to node state (e.g. store a picked File object).
+ * Enriches node data with registry def fields before passing to NodeCard:
+ *   - renderBody (custom JSX body, with setNodes injected for factory nodes)
+ *   - _doc, _resultType, _inputType, _outputType, _defaultControls
  */
 import { memo } from 'react'
 import { useReactFlow } from 'reactflow'
@@ -18,16 +14,23 @@ function PipelineNode({ id, data, selected }) {
   const def = NODE_DEFS[data.nodeDefId]
 
   let renderBody = def?.renderBody ?? null
-
-  // FileUploadNode (and any node with _renderBodyFactory) needs
-  // nodeId + setNodes injected so it can update its own data.
   if (!renderBody && def?._renderBodyFactory) {
     const factory = def._renderBodyFactory
     renderBody = (nodeData, updateControl) =>
       factory(nodeData, updateControl, id, setNodes)
   }
 
-  const enrichedData = { ...data, renderBody }
+  const enrichedData = {
+    ...data,
+    renderBody,
+    // inject doc metadata so NodeCard can show the ? and ⊞ buttons
+    _doc:             def?.doc            ?? null,
+    _resultType:      def?.resultType     ?? null,
+    _inputType:       def?.inputType      ?? null,
+    _outputType:      def?.outputType     ?? null,
+    _defaultControls: def?.defaultControls ?? data.controls,
+  }
+
   return <NodeCard id={id} data={enrichedData} selected={selected} />
 }
 

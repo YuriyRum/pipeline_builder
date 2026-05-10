@@ -11,6 +11,16 @@ const ValidatorNode = {
   icon:   '✅',
   iconBg: '#1e2e1a',
   group:  'processing',
+  doc: `Validates each row against a versioned JSON schema.
+
+## On-fail actions
+- Warn: log invalid rows but let them through.
+- Drop: remove invalid rows.
+- Abort: fail the node and stop the pipeline stage.`,
+  inputType:  'any',
+  outputType: 'dataset',
+  resultType: 'stats',
+
 
   defaultControls: [
     { type: 'toggle', label: 'Strict mode',   key: 'strict', val: true },

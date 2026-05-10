@@ -21,7 +21,7 @@ function PipelineEdge({
         path={edgePath}
         markerEnd={markerEnd}
         style={{
-          stroke: isAnimated ? 'var(--green)' : 'rgba(255,255,255,0.2)',
+          stroke: isAnimated ? 'var(--magenta)' : 'rgba(255,255,255,0.2)',
           strokeWidth: isAnimated ? 2.5 : 1.5,
           strokeDasharray: isAnimated ? '8 5' : undefined,
           animation: isAnimated ? 'flowDash 0.5s linear infinite' : undefined,

@@ -18,6 +18,17 @@ const DataTransformNode = {
   icon:   '🔄',
   iconBg: '#1e2830',
   group:  'processing',
+  doc: `Applies column-level and row-level transformations to a parsed dataset.
+
+## Operations
+- Cast numbers: converts numeric strings to JS numbers.
+- Drop empties: removes rows where every value is empty.
+- Trim strings: strips leading/trailing whitespace.
+- Sort by: sorts by the first column ascending or descending.`,
+  inputType:  'dataset',
+  outputType: 'dataset',
+  resultType: 'table',
+
 
   defaultControls: [
     { type: 'select',   label: 'Cast numbers', key: 'cast',    val: 'Auto',   opts: ['Auto', 'Force', 'Off']  },

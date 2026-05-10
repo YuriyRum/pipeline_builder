@@ -30,7 +30,7 @@ const CSV_PIPELINE = {
     {
       id: 'pg2', type: 'group',
       position: { x: 270, y: 20 }, style: { width: 280, height: 260 },
-      data: { label: 'Processing', bg: 'rgba(29,158,117,0.07)', border: '#1D9E75', labelColor: '#1D9E75' },
+      data: { label: 'Processing', bg: 'rgba(226,0,116,0.06)', border: 'var(--magenta)', labelColor: 'var(--magenta)' },
     },
     // Group: Output
     {
@@ -108,7 +108,7 @@ const GENERAL_PIPELINE = {
     { id:'g1', type:'group', position:{x:20,y:20}, style:{width:250,height:290},
       data:{label:'Data ingestion',bg:'rgba(74,144,217,0.07)',border:'#4A90D9',labelColor:'#4A90D9'}},
     { id:'g2', type:'group', position:{x:305,y:20}, style:{width:285,height:290},
-      data:{label:'Processing',bg:'rgba(29,158,117,0.07)',border:'#1D9E75',labelColor:'#1D9E75'}},
+      data:{label:'Processing',bg:'rgba(226,0,116,0.06)',border:'var(--magenta)',labelColor:'var(--magenta)'}},
     { id:'g3', type:'group', position:{x:20,y:345}, style:{width:570,height:220},
       data:{label:'Output',bg:'rgba(245,166,35,0.07)',border:'#F5A623',labelColor:'#F5A623'}},
     { id:'n1', type:'pipeline', position:{x:50,y:75},

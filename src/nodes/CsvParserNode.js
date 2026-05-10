@@ -50,6 +50,18 @@ const CsvParserNode = {
   icon:   '📊',
   iconBg: '#1a2030',
   group:  'processing',
+  doc: `Parses CSV or XLSX content entirely in the browser using SheetJS. No backend required.
+
+## Supported formats
+- CSV: any delimiter (auto-detected or manual)
+- XLSX / XLS: reads the first sheet
+
+## Notes
+For very large files (>50 MB) consider a backend parser instead.`,
+  inputType:  'file (raw)',
+  outputType: 'dataset',
+  resultType: 'table',
+
 
   defaultControls: [
     { type: 'select',   label: 'Delimiter',   key: 'delim',  val: 'Auto', opts: ['Auto', ',', ';', '\\t'] },

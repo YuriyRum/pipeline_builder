@@ -11,6 +11,19 @@ const HttpExportNode = {
   icon:   '🚀',
   iconBg: '#1e1a30',
   group:  'output',
+  doc: `Sends the processed data to an external HTTP endpoint.
+
+## Formats
+- JSON: serialises as a JSON array.
+- CSV: UTF-8 CSV with headers.
+- NDJSON: newline-delimited JSON.
+
+## Notes
+Retries use exponential back-off on 5xx responses.`,
+  inputType:  'dataset',
+  outputType: 'http-response',
+  resultType: 'stats',
+
 
   defaultControls: [
     { type: 'select',   label: 'Method',  key: 'method',  val: 'POST',   opts: ['POST', 'PUT', 'PATCH'] },

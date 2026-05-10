@@ -1,19 +1,13 @@
-/**
- * pipelineStore.js
- * Save / load pipelines as JSON in localStorage.
- * Strips all runtime-only / non-serialisable fields before saving.
- */
-
 const STORAGE_KEY = 'pipeline_catalog'
 
 function cleanNode(node) {
-  const { buildMode, onDelete, renderBody, _progress, status, lastOutput, ...rest } = node.data ?? {}
-  return { id: node.id, type: node.type, position: node.position, style: node.style, data: rest }
+  const { buildMode, onDelete, renderBody, _progress, status, lastOutput,
+          _lastRunOutput, _file, _rawText, _previewLines, ...rest } = node.data ?? {}
+  return { id:node.id, type:node.type, position:node.position, style:node.style, data:rest }
 }
-
 function cleanEdge(edge) {
   const { animated, buildMode, onDelete, ...restData } = edge.data ?? {}
-  return { id: edge.id, source: edge.source, target: edge.target, type: edge.type, markerEnd: edge.markerEnd, data: restData }
+  return { id:edge.id, source:edge.source, target:edge.target, type:edge.type, markerEnd:edge.markerEnd, data:restData }
 }
 
 export function serialisePipeline(name, nodes, edges) {
@@ -36,9 +30,10 @@ export function listPipelines() {
   return loadCatalog().sort((a, b) => b.savedAt.localeCompare(a.savedAt))
 }
 
-export function savePipeline(name, nodes, edges) {
+/** Save pipeline. If `nodesOverride`/`edgesOverride` are provided they are used instead of live state. */
+export function savePipeline(name, nodesOrNull, edgesOrNull) {
   const catalog = loadCatalog()
-  const record  = serialisePipeline(name, nodes, edges)
+  const record  = serialisePipeline(name, nodesOrNull ?? [], edgesOrNull ?? [])
   const idx = catalog.findIndex(p => p.name === name)
   if (idx >= 0) catalog[idx] = record
   else catalog.push(record)
@@ -51,9 +46,9 @@ export function deletePipeline(id) {
 }
 
 export function exportPipelineFile(pipeline) {
-  const blob = new Blob([JSON.stringify(pipeline, null, 2)], { type: 'application/json' })
+  const blob = new Blob([JSON.stringify(pipeline, null, 2)], { type:'application/json' })
   const url  = URL.createObjectURL(blob)
-  const a    = Object.assign(document.createElement('a'), { href: url, download: `${pipeline.name.replace(/\s+/g, '_')}.pipeline.json` })
+  const a    = Object.assign(document.createElement('a'), { href:url, download:`${pipeline.name.replace(/\s+/g,'_')}.pipeline.json` })
   a.click()
   URL.revokeObjectURL(url)
 }

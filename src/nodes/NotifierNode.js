@@ -11,6 +11,17 @@ const NotifierNode = {
   icon:   '🔔',
   iconBg: '#2e1f14',
   group:  'output',
+  doc: `Sends notifications through Email, Slack, or a generic webhook when the pipeline completes.
+
+## Controls
+- On error only: suppresses notifications for successful runs.
+
+## Notes
+Channel credentials are configured in the backend environment, not in this node.`,
+  inputType:  'any',
+  outputType: 'none',
+  resultType: 'stats',
+
 
   defaultControls: [
     { type: 'checkbox', label: 'Email',         key: 'email',   val: true  },

@@ -133,6 +133,17 @@ const TableViewNode = {
   icon:   '📋',
   iconBg: '#1e2516',
   group:  'output',
+  doc: `Renders the final dataset as a scrollable table inside the node card.
+After running, click the result button in the header to open a full paginated DataTable dialog.
+
+## Features
+- Inline preview of the first 6 rows.
+- Download button exports the full dataset as CSV.
+- Numeric values are highlighted for quick scanning.`,
+  inputType:  'dataset',
+  outputType: 'display',
+  resultType: 'table',
+
 
   defaultControls: [],
 

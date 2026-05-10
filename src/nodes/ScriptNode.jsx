@@ -55,6 +55,20 @@ const ScriptNode = {
   icon:   '📝',
   iconBg: '#1a1e2a',
   group:  'processing',
+  doc: `Runs arbitrary JavaScript in the browser using an AsyncFunction sandbox.
+
+## API
+// input - output from the nearest upstream node (or null)
+return { ...input, myField: 42 }
+
+## Notes
+- You can use await inside the script.
+- A configurable timeout aborts runaway scripts.
+- Syntax errors mark the node as errored.`,
+  inputType:  'any',
+  outputType: 'any',
+  resultType: 'json',
+
 
   defaultControls: [
     { type: 'text',   label: 'Code',    key: 'code',    val: DEFAULT_SCRIPT },

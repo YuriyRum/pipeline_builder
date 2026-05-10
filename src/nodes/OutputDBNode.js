@@ -11,6 +11,20 @@ const OutputDBNode = {
   icon:   '💾',
   iconBg: '#2e2516',
   group:  'output',
+  doc: `Writes the processed dataset to a target database.
+
+## On-conflict strategies
+- Upsert: insert or update based on primary key.
+- Skip: ignore rows that already exist.
+- Replace: delete and re-insert.
+- Error: abort on any conflict.
+
+## Notes
+Tx rollback wraps the write in a transaction - if any row fails, all changes are rolled back.`,
+  inputType:  'dataset',
+  outputType: 'write-result',
+  resultType: 'stats',
+
 
   defaultControls: [
     { type: 'select', label: 'Target',      key: 'db',      val: 'Postgres', opts: ['Postgres', 'MySQL', 'Mongo', 'BigQuery', 'Snowflake'] },

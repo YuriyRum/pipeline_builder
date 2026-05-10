@@ -11,6 +11,17 @@ const TransformerNode = {
   icon:   '⚙️',
   iconBg: '#1a3028',
   group:  'processing',
+  doc: `Applies normalization or encoding strategies to a dataset.
+
+## Modes
+- Normalize: scale values to 0-1.
+- Scale: Z-score standardization.
+- Encode: one-hot encode categorical columns.
+- Flatten: collapse nested objects into dot-notation keys.`,
+  inputType:  'any',
+  outputType: 'dataset',
+  resultType: 'stats',
+
 
   defaultControls: [
     { type: 'select',   label: 'Mode',       key: 'mode',   val: 'Normalize', opts: ['Normalize', 'Scale', 'Encode', 'Flatten'] },

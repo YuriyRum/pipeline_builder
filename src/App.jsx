@@ -25,7 +25,7 @@ const uid_ = () => `n${uid++}`
 const mkEdge = (id, source, target, animated = false, buildMode = false, onDelete = null) => ({
   id, source, target, type: 'pipeline',
   markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14,
-    color: animated ? '#1D9E75' : 'rgba(255,255,255,0.2)' },
+    color: animated ? 'var(--magenta)' : 'rgba(255,255,255,0.2)' },
   data: { animated, buildMode, onDelete },
 })
 
@@ -141,8 +141,8 @@ export default function App() {
   }, [onDelNode])
 
   /* ── catalog: save ── */
-  const handleSave = useCallback(name => {
-    savePipeline(name, nodesRef.current, edgesRef.current)
+  const handleSave = useCallback((name, nodesOverride, edgesOverride) => {
+    savePipeline(name, nodesOverride ?? nodesRef.current, edgesOverride ?? edgesRef.current)
     setPipelineName(name)
   }, [])
 
@@ -167,7 +167,7 @@ export default function App() {
   const animEdges = useCallback((ids,on)=>{
     setEdges(eds=>eds.map(e=>ids.includes(e.id)
       ?{...e,data:{...e.data,animated:on},
-          markerEnd:{type:MarkerType.ArrowClosed,width:14,height:14,color:on?'#1D9E75':'rgba(255,255,255,0.2)'}}
+          markerEnd:{type:MarkerType.ArrowClosed,width:14,height:14,color:on?'var(--magenta)':'rgba(255,255,255,0.2)'}}
       :e
     ))
   },[])
@@ -230,14 +230,14 @@ export default function App() {
           clearInterval(check)
           if (result.ok) {
             outputs[nodeId] = result.output ?? null
-            setNodeField(nodeId, {status:'done',lastOutput:result.message??'ok'})
+            setNodeField(nodeId, {status:'done', lastOutput:result.message??'ok', _lastRunOutput: result.output ?? null})
           } else {
-            setNodeField(nodeId, {status:'error',lastOutput:result.message??'error'})
+            setNodeField(nodeId, {status:'error', lastOutput:result.message??'error', _lastRunOutput: null})
             addLog(`✗ ${label}: ${result.message??'failed'}`,'error')
           }
         } catch(err) {
           clearInterval(check)
-          setNodeField(nodeId, {status:'error',lastOutput:err.message})
+          setNodeField(nodeId, {status:'error', lastOutput:err.message, _lastRunOutput: null})
           addLog(`✗ ${label}: ${err.message}`,'error')
         }
       })
@@ -269,7 +269,7 @@ export default function App() {
         display:'flex', alignItems:'center', gap:10, padding:'8px 16px',
         background:'var(--surface)', borderBottom:'1px solid var(--border2)', flexShrink:0,
       }}>
-        <div style={{fontFamily:'var(--font-mono)',fontSize:14,fontWeight:500,color:'var(--green2)',flexShrink:0}}>
+        <div style={{fontFamily:'var(--font-mono)',fontSize:14,fontWeight:500,color:'var(--magenta-light)',flexShrink:0}}>
           ⬡ Pipeline Builder
         </div>
 
@@ -298,9 +298,9 @@ export default function App() {
         <button onClick={toggleBuild} disabled={running} style={{
           display:'flex', alignItems:'center', gap:5,
           padding:'6px 13px', borderRadius:999,
-          background: buildMode?'rgba(245,166,35,0.15)':'var(--surface2)',
-          border:`1px solid ${buildMode?'rgba(245,166,35,0.4)':'var(--border2)'}`,
-          color: buildMode?'var(--amber)':'var(--muted)',
+          background: buildMode?'var(--magenta-subtle)':'var(--surface2)',
+          border:`1px solid ${buildMode?'var(--magenta)':'var(--border2)'}`,
+          color: buildMode?'var(--magenta-light)':'var(--muted)',
           fontSize:12, fontWeight:500, cursor:running?'not-allowed':'pointer',
           fontFamily:'var(--font-ui)', transition:'all 0.2s', opacity:running?0.5:1,
         }}>{buildMode?'🔧 Build':'👁️ View'}</button>
@@ -309,7 +309,7 @@ export default function App() {
         <button onClick={startRun} disabled={running||buildMode} style={{
           display:'flex', alignItems:'center', gap:5,
           padding:'7px 18px', borderRadius:999,
-          background: running||buildMode?'var(--surface2)':'var(--green)',
+          background: running||buildMode?'var(--surface2)':'var(--magenta)',
           border:'1px solid transparent',
           color: running||buildMode?'var(--muted)':'white',
           fontSize:13, fontWeight:500,
@@ -347,7 +347,7 @@ export default function App() {
               nodeColor={n=>{
                 if(n.type==='group') return 'rgba(255,255,255,0.05)'
                 const s=n.data?.status
-                return s==='done'?'#1D9E75':s==='running'?'#5DCAA5':s==='error'?'#E05252':'#3a3a38'
+                return s==='done'?'var(--magenta-dark)':s==='running'?'var(--magenta)':s==='error'?'#E05252':'#3a3a38'
               }}
               maskColor="rgba(15,15,14,0.6)" style={{bottom:80}}
             />
@@ -357,8 +357,8 @@ export default function App() {
           {buildMode && (
             <div style={{
               position:'absolute', bottom:16, left:'50%', transform:'translateX(-50%)',
-              background:'rgba(245,166,35,0.1)', border:'1px solid rgba(245,166,35,0.25)',
-              borderRadius:999, padding:'6px 16px', fontSize:12, color:'var(--amber)',
+              background:'rgba(226,0,116,0.08)', border:'1px solid rgba(226,0,116,0.25)',
+              borderRadius:999, padding:'6px 16px', fontSize:12, color:'var(--magenta-light)',
               fontFamily:'var(--font-mono)', pointerEvents:'none', whiteSpace:'nowrap',
             }}>
               Drag to move · Handle→Handle to connect · × to delete · Backspace removes selected
@@ -382,7 +382,7 @@ export default function App() {
                 {log.map((l,i)=>(
                   <div key={i} style={{
                     fontSize:11, lineHeight:1.7,
-                    color:l.type==='ok'?'var(--green)':l.type==='error'?'var(--red)':'var(--muted)',
+                    color:l.type==='ok'?'var(--magenta-light)':l.type==='error'?'var(--red)':'var(--muted)',
                   }}>{l.msg}</div>
                 ))}
               </div>

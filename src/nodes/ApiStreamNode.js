@@ -11,6 +11,17 @@ const ApiStreamNode = {
   icon:   '🌐',
   iconBg: '#1a2838',
   group:  'ingestion',
+  doc: `Polls or streams data from an HTTP endpoint (REST or WebSocket).
+
+## Controls
+- Enabled: bypass this node without deleting it.
+- Method: GET for polling, POST to send a payload, WebSocket for a stream.
+- Auth token: attach a Bearer token header.
+- Retry: number of automatic retries on 5xx errors.`,
+  inputType:  'none',
+  outputType: 'records',
+  resultType: 'stats',
+
 
   defaultControls: [
     { type: 'toggle',   label: 'Enabled',    key: 'enabled', val: true },

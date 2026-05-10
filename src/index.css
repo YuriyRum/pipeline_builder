@@ -1,24 +1,46 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=TeleNeo:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── Telekom Magenta dark palette ─────────────────────────── */
 :root {
-  --bg:       #0f0f0e;
-  --surface:  #1a1a18;
-  --surface2: #242422;
-  --border:   rgba(255,255,255,0.08);
-  --border2:  rgba(255,255,255,0.14);
-  --text:     #e8e5dc;
-  --muted:    #7a7872;
-  --green:    #1D9E75;
-  --green2:   #9FE1CB;
-  --amber:    #F5A623;
-  --blue:     #4A90D9;
-  --red:      #E05252;
-  --font-ui:  'DM Sans', sans-serif;
-  --font-mono:'IBM Plex Mono', monospace;
-  --r:        8px;
-  --r-lg:     12px;
+  /* Brand */
+  --magenta:        #E20074;
+  --magenta-light:  #FF4DAC;
+  --magenta-dark:   #B3005A;
+  --magenta-subtle: rgba(226,0,116,0.12);
+  --magenta-glow:   rgba(226,0,116,0.25);
+
+  /* Neutrals — Telekom-flavoured dark */
+  --bg:       #0d0d0d;
+  --surface:  #181818;
+  --surface2: #212121;
+  --surface3: #2a2a2a;
+
+  /* Borders */
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.13);
+  --border3:  rgba(255,255,255,0.22);
+
+  /* Text */
+  --text:     #f0f0f0;
+  --muted:    #888888;
+  --muted2:   #606060;
+
+  /* Semantic */
+  --red:      #FF5252;
+  --amber:    #FFAB00;
+  --blue:     #0080FF;
+  --green:    #00B87A;   /* kept for non-brand success states */
+  --green2:   #4DD6A8;
+
+  /* Fonts */
+  --font-ui:   'DM Sans', 'TeleNeo', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Radii */
+  --r:    6px;
+  --r-lg: 10px;
 }
 
 html, body, #root {
@@ -29,15 +51,17 @@ html, body, #root {
   overflow: hidden;
 }
 
-.react-flow__renderer { background: var(--bg) !important; }
+/* ── ReactFlow canvas ──────────────────────────────────────── */
+.react-flow__renderer  { background: var(--bg) !important; }
 .react-flow__background { background: var(--bg) !important; }
-.react-flow__edge-path { stroke-width: 2 !important; }
+.react-flow__edge-path  { stroke-width: 2 !important; }
 
 .react-flow__controls {
   background: var(--surface) !important;
   border: 1px solid var(--border2) !important;
   border-radius: var(--r) !important;
   overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
 }
 .react-flow__controls-button {
   background: var(--surface) !important;
@@ -46,13 +70,16 @@ html, body, #root {
 }
 .react-flow__controls-button:hover {
   background: var(--surface2) !important;
-  fill: var(--text) !important;
+  fill: var(--magenta-light) !important;
 }
+
 .react-flow__minimap {
   background: var(--surface) !important;
   border: 1px solid var(--border2) !important;
   border-radius: var(--r) !important;
 }
+
+/* Handles */
 .react-flow__handle {
   width: 10px !important;
   height: 10px !important;
@@ -61,18 +88,139 @@ html, body, #root {
   transition: background 0.15s, transform 0.15s !important;
 }
 .react-flow__handle:hover,
-.react-flow__handle-connecting { background: var(--green) !important; transform: scale(1.4) !important; }
-.react-flow__handle-valid { background: var(--green) !important; }
-.react-flow__connection-line { stroke: var(--green) !important; stroke-width: 2 !important; stroke-dasharray: 6 4 !important; }
+.react-flow__handle-connecting {
+  background: var(--magenta) !important;
+  transform: scale(1.4) !important;
+}
+.react-flow__handle-valid { background: var(--magenta-light) !important; }
+
+/* Connection line while dragging */
+.react-flow__connection-line {
+  stroke: var(--magenta) !important;
+  stroke-width: 2 !important;
+  stroke-dasharray: 6 4 !important;
+}
+
+/* Selected edge */
 .react-flow__edge.selected .react-flow__edge-path { stroke: var(--amber) !important; }
+
+/* Animated edge (running) */
 .react-flow__edge.animated .react-flow__edge-path {
   stroke-dasharray: 8 5;
-  animation: flowDash 0.5s linear infinite;
+  animation: flowDash 0.45s linear infinite;
 }
 @keyframes flowDash { to { stroke-dashoffset: -13; } }
 
+/* Edge delete button */
 .edge-delete-btn { cursor: pointer; pointer-events: all; }
 .edge-delete-btn circle { fill: var(--surface2); stroke: var(--border2); transition: fill 0.15s; }
-.edge-delete-btn text { fill: var(--red); font-size: 10px; font-weight: 700; dominant-baseline: central; text-anchor: middle; }
+.edge-delete-btn text   { fill: var(--red); font-size: 10px; font-weight: 700; dominant-baseline:central; text-anchor:middle; }
 .edge-delete-btn:hover circle { fill: var(--red); }
-.edge-delete-btn:hover text { fill: white; }
+.edge-delete-btn:hover text   { fill: white; }
+
+/* ── PrimeReact — Telekom Magenta overrides ─────────────────── */
+
+/* Dialog */
+.p-dialog {
+  background: var(--surface) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: var(--r-lg) !important;
+  color: var(--text) !important;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7) !important;
+}
+.p-dialog-header {
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 14px 18px !important;
+  color: var(--text) !important;
+  border-radius: var(--r-lg) var(--r-lg) 0 0 !important;
+}
+.p-dialog-header-icon {
+  color: var(--muted) !important;
+  width: 28px !important; height: 28px !important;
+  border-radius: 4px !important;
+}
+.p-dialog-header-icon:hover { background: var(--surface2) !important; color: var(--text) !important; }
+.p-dialog-content {
+  background: var(--surface) !important;
+  padding: 18px !important;
+  color: var(--text) !important;
+}
+
+/* DataTable */
+.p-datatable .p-datatable-header { background: var(--surface) !important; border-color: var(--border) !important; padding: 8px 0 !important; }
+.p-datatable .p-datatable-thead > tr > th {
+  background: var(--surface2) !important;
+  color: var(--muted) !important;
+  border-color: var(--border) !important;
+  font-size: 10px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 7px 10px !important;
+}
+.p-datatable .p-datatable-thead > tr > th .p-sortable-column-icon { color: var(--muted) !important; }
+.p-datatable .p-sortable-column:hover { background: var(--surface3) !important; }
+.p-datatable .p-sortable-column.p-highlight { background: var(--magenta-subtle) !important; color: var(--magenta-light) !important; }
+.p-datatable .p-sortable-column.p-highlight .p-sortable-column-icon { color: var(--magenta-light) !important; }
+
+.p-datatable .p-datatable-tbody > tr {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  transition: background 0.1s;
+}
+.p-datatable .p-datatable-tbody > tr:nth-child(even) { background: var(--surface2) !important; }
+.p-datatable .p-datatable-tbody > tr:hover { background: var(--surface3) !important; }
+.p-datatable .p-datatable-tbody > tr > td {
+  border-color: var(--border) !important;
+  padding: 5px 10px !important;
+}
+
+/* Paginator */
+.p-paginator {
+  background: var(--surface2) !important;
+  border-color: var(--border) !important;
+  color: var(--muted) !important;
+  padding: 4px 8px !important;
+}
+.p-paginator .p-paginator-element, .p-paginator .p-paginator-pages .p-paginator-page {
+  color: var(--muted) !important;
+  border-radius: 4px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+}
+.p-paginator .p-paginator-element:hover, .p-paginator .p-paginator-pages .p-paginator-page:hover {
+  background: var(--surface3) !important;
+  color: var(--text) !important;
+}
+.p-paginator .p-highlight {
+  background: var(--magenta) !important;
+  color: white !important;
+}
+.p-paginator .p-dropdown {
+  background: var(--surface) !important;
+  border-color: var(--border2) !important;
+  color: var(--text) !important;
+}
+
+/* Tag */
+.p-tag { border-radius: 4px !important; font-size: 10px !important; }
+
+/* Button (text variant used in result dialog) */
+.p-button.p-button-text { color: var(--magenta-light) !important; }
+.p-button.p-button-text:hover { background: var(--magenta-subtle) !important; }
+.p-button .p-button-icon { color: inherit !important; }
+
+/* Scrollbar inside dialog/table */
+.p-datatable-wrapper::-webkit-scrollbar,
+.p-dialog-content::-webkit-scrollbar { width: 5px; height: 5px; }
+.p-datatable-wrapper::-webkit-scrollbar-track,
+.p-dialog-content::-webkit-scrollbar-track { background: var(--surface2); }
+.p-datatable-wrapper::-webkit-scrollbar-thumb,
+.p-dialog-content::-webkit-scrollbar-thumb { background: var(--magenta-dark); border-radius: 3px; }
+
+/* Dropdown panel (paginator rows-per-page) */
+.p-dropdown-panel { background: var(--surface2) !important; border-color: var(--border2) !important; }
+.p-dropdown-item  { color: var(--text) !important; }
+.p-dropdown-item:hover { background: var(--magenta-subtle) !important; }
+.p-dropdown-item.p-highlight { background: var(--magenta) !important; color: white !important; }

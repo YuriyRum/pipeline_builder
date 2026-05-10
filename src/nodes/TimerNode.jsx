@@ -52,6 +52,16 @@ const TimerNode = {
   icon:   '⏱️',
   iconBg: '#1e2030',
   group:  'processing',
+  doc: `Introduces a deliberate async delay in the pipeline.
+Useful for rate-limiting, cooldown between API calls, or demo pacing.
+
+## Notes
+A live progress bar renders inside the node during the delay.
+The delay is aborted when you reset the pipeline mid-run.`,
+  inputType:  'any',
+  outputType: 'passthrough',
+  resultType: 'stats',
+
 
   defaultControls: [
     { type: 'select', label: 'Duration', key: 'dur',    val: '1s',           opts: Object.keys(DURATIONS) },
