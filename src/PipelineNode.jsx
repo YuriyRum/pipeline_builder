@@ -7,7 +7,7 @@
  */
 import { memo } from 'react'
 import { useReactFlow, NodeResizer } from 'reactflow'
-import NodeCard from './nodes/NodeCard.jsx'
+import NodeCard from './NodeCard.jsx'
 import { NODE_DEFS } from './nodes/registry.js'
 
 function PipelineNode({ id, data, selected }) {

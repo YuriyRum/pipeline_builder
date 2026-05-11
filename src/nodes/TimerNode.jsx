@@ -4,7 +4,7 @@
  * Demonstrates a custom renderBody with a live countdown UI.
  */
 
-import { ControlRow, MiniSelect } from './NodeCard.jsx'
+import { ControlRow, MiniSelect } from '../NodeCard.jsx'
 
 const DURATIONS = { '0.5s': 500, '1s': 1000, '2s': 2000, '3s': 3000, '5s': 5000 }
 
