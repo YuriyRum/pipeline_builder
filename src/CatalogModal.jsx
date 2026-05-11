@@ -221,7 +221,7 @@ export default function CatalogModal({ onClose, onLoad, onSave, currentName }) {
   const handleNewPipeline = name => {
     // Save a blank pipeline and immediately load it
     const blank = { nodes: [], edges: [] }
-    onSave(name, blank)
+    onSave(name, blank.nodes, blank.edges)
     // Load the empty canvas
     onLoad({ name, nodes: [], edges: [] })
     onClose()
