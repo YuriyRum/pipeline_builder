@@ -12,7 +12,7 @@ import PipelineEdge  from './PipelineEdge'
 import NodePalette   from './NodePalette'
 import CatalogModal  from './CatalogModal'
 import { NODE_DEFS } from './nodes/registry.js'
-import { savePipeline } from './pipelineStore.js'
+import { savePipeline, loadSession, saveSession } from './pipelineStore.js'
 import { PRESETS } from './presets.js'
 
 const nodeTypes = { pipeline: PipelineNode, group: GroupNode }
@@ -51,11 +51,29 @@ const delay = ms => new Promise(r => setTimeout(r, ms))
 
 /* ── hydrate a saved/preset pipeline into live ReactFlow state ── */
 function hydratePipeline(pipeline, onDelNode, onDelEdge) {
-  const nodes = pipeline.nodes.map(n => ({
-    ...n,
-    data: { ...n.data, status:'idle', lastOutput:null, _progress:0,
-      buildMode: false, onDelete: onDelNode },
-  }))
+  const nodes = pipeline.nodes.map(n => {
+    const node = {
+      ...n,
+      // Restore position exactly as saved
+      position: { x: n.position?.x ?? 0, y: n.position?.y ?? 0 },
+      data: {
+        ...n.data,
+        // Reset runtime state
+        status: 'idle', lastOutput: null, _progress: 0,
+        _lastRunOutput: null,
+        buildMode: false, onDelete: onDelNode,
+      },
+    }
+    // Restore saved size: prefer style.width/height, fall back to node.width/height
+    if (n.style?.width || n.width) {
+      node.style = {
+        ...(n.style ?? {}),
+        width:  n.style?.width  ?? n.width,
+        height: n.style?.height ?? n.height,
+      }
+    }
+    return node
+  })
   const edges = pipeline.edges.map(e => mkEdge(e.id, e.source, e.target, false, false, onDelEdge))
   return { nodes, edges }
 }
@@ -72,12 +90,15 @@ export default function App() {
   const [edges,        setEdges]        = useState([])
   const [showCatalog,  setShowCatalog]  = useState(false)
   const [pipelineName, setPipelineName] = useState('')
+  const [unsaved,      setUnsaved]      = useState(false)
+  const [saveFlash,    setSaveFlash]    = useState(false) // brief green flash after save
 
   const runAbort = useRef(false)
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
-  useEffect(() => { nodesRef.current = nodes }, [nodes])
-  useEffect(() => { edgesRef.current = edges }, [edges])
+  // Keep refs fresh (no auto-save — user triggers saves explicitly)
+  useEffect(() => { nodesRef.current = nodes;  setUnsaved(true) }, [nodes])
+  useEffect(() => { edgesRef.current = edges;  setUnsaved(true) }, [edges])
 
   // ── delete handlers (stable refs needed for hydration) ──
   const onDelEdge = useCallback(id => setEdges(eds => eds.filter(e => e.id !== id)), [])
@@ -86,11 +107,50 @@ export default function App() {
     setEdges(eds => eds.filter(e => e.source !== id && e.target !== id))
   }, [])
 
-  // Load initial preset on mount
+
+  /* ── catalog: save ── */
+  const handleSave = useCallback((name, nodesOverride, edgesOverride) => {
+    const nm = name ?? pipelineName
+    if (!nm) return
+    savePipeline(nm, nodesOverride ?? nodesRef.current, edgesOverride ?? edgesRef.current)
+    saveSession(nm, nodesOverride ?? nodesRef.current, edgesOverride ?? edgesRef.current)
+    setPipelineName(nm)
+    setUnsaved(false)
+    setSaveFlash(true)
+    setTimeout(() => setSaveFlash(false), 1500)
+  }, [pipelineName])
+
+  /* ── quick save (Ctrl/Cmd+S) ── */
+  const quickSave = useCallback(() => {
+    if (pipelineName) handleSave(pipelineName)
+    else setShowCatalog(true)
+  }, [pipelineName, handleSave])
+
+  // Ctrl/Cmd+S keyboard shortcut
   useEffect(() => {
-    const { nodes: n, edges: e } = hydratePipeline(INITIAL_PRESET, onDelNode, onDelEdge)
-    setNodes(n); setEdges(e)
-    setPipelineName(INITIAL_PRESET.name)
+    const fn = e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        quickSave()
+      }
+    }
+    window.addEventListener('keydown', fn)
+    return () => window.removeEventListener('keydown', fn)
+  }, [quickSave])
+
+  // On mount: restore last session, or fall back to the CSV preset
+  useEffect(() => {
+    const session = loadSession()
+    if (session?.pipeline?.nodes?.length) {
+      const { nodes: n, edges: e } = hydratePipeline(session.pipeline, onDelNode, onDelEdge)
+      setNodes(n); setEdges(e)
+      setPipelineName(session.name || session.pipeline.name || '')
+    } else {
+      const { nodes: n, edges: e } = hydratePipeline(INITIAL_PRESET, onDelNode, onDelEdge)
+      setNodes(n); setEdges(e)
+      setPipelineName(INITIAL_PRESET.name)
+    }
+    setUnsaved(false)
   }, []) // eslint-disable-line
 
   /* ── ReactFlow ── */
@@ -140,12 +200,6 @@ export default function App() {
     }
   }, [onDelNode])
 
-  /* ── catalog: save ── */
-  const handleSave = useCallback((name, nodesOverride, edgesOverride) => {
-    savePipeline(name, nodesOverride ?? nodesRef.current, edgesOverride ?? edgesRef.current)
-    setPipelineName(name)
-  }, [])
-
   /* ── catalog: load ── */
   const handleLoad = useCallback(pipeline => {
     runAbort.current = true
@@ -154,6 +208,7 @@ export default function App() {
     const { nodes: n, edges: e } = hydratePipeline(pipeline, onDelNode, onDelEdge)
     setNodes(n); setEdges(e)
     setPipelineName(pipeline.name)
+    setUnsaved(false)
     setLog([{msg:`Loaded "${pipeline.name}"`,type:'info'}])
   }, [onDelNode, onDelEdge])
 
@@ -274,16 +329,43 @@ export default function App() {
         </div>
 
         {/* Pipeline name badge */}
-        {pipelineName && (
-          <div style={{
+        <div style={{
+          display:'flex', alignItems:'center', gap:6,
+          background:'var(--surface2)', border:'1px solid var(--border2)',
+          borderRadius:999, padding:'2px 4px 2px 12px',
+          maxWidth:240, flexShrink:1,
+        }}>
+          <span style={{
             fontSize:11, color:'var(--muted)', fontFamily:'var(--font-mono)',
-            background:'var(--surface2)', border:'1px solid var(--border)',
-            borderRadius:999, padding:'3px 10px', maxWidth:200,
-            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-          }}>{pipelineName}</div>
-        )}
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1,
+          }}>{pipelineName || 'Untitled'}</span>
+          {unsaved && (
+            <div title="Unsaved changes" style={{
+              width:7, height:7, borderRadius:'50%', flexShrink:0,
+              background:'var(--magenta)', boxShadow:'0 0 6px var(--magenta)',
+            }}/>
+          )}
+        </div>
 
         <div style={{flex:1}} />
+
+        {/* Save button */}
+        <button
+          onClick={quickSave}
+          disabled={running}
+          title={pipelineName ? `Save "${pipelineName}" (Ctrl+S)` : 'Save pipeline (Ctrl+S)'}
+          style={{
+            display:'flex', alignItems:'center', gap:5,
+            padding:'6px 14px', borderRadius:999,
+            background: saveFlash ? 'var(--magenta)' : unsaved ? 'var(--magenta-subtle)' : 'var(--surface2)',
+            border:`1px solid ${saveFlash ? 'var(--magenta)' : unsaved ? 'var(--magenta)' : 'var(--border2)'}`,
+            color: saveFlash ? 'white' : unsaved ? 'var(--magenta-light)' : 'var(--muted)',
+            fontSize:12, fontWeight: unsaved ? 500 : 400,
+            cursor:running?'not-allowed':'pointer',
+            fontFamily:'var(--font-ui)', transition:'all 0.2s',
+            opacity:running?0.5:1,
+          }}
+        >{saveFlash ? '✓ Saved' : '💾 Save'}</button>
 
         {/* Catalog button */}
         <button onClick={()=>setShowCatalog(true)} disabled={running} style={{
