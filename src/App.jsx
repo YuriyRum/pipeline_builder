@@ -8,6 +8,7 @@ import 'reactflow/dist/style.css'
 
 import PipelineNode  from './PipelineNode'
 import GroupNode     from './GroupNode'
+import SubflowNode   from './nodes/SubflowNode.jsx'
 import PipelineEdge  from './PipelineEdge'
 import NodePalette   from './NodePalette'
 import CatalogModal  from './CatalogModal'
@@ -15,7 +16,7 @@ import { NODE_DEFS } from './nodes/registry.js'
 import { savePipeline, loadSession, saveSession } from './pipelineStore.js'
 import { PRESETS } from './presets.js'
 
-const nodeTypes = { pipeline: PipelineNode, group: GroupNode }
+const nodeTypes = { pipeline: PipelineNode, group: GroupNode, subflow: SubflowNode }
 const edgeTypes = { pipeline: PipelineEdge }
 
 let uid = 200
@@ -54,17 +55,18 @@ function hydratePipeline(pipeline, onDelNode, onDelEdge) {
   const nodes = pipeline.nodes.map(n => {
     const node = {
       ...n,
-      // Restore position exactly as saved
       position: { x: n.position?.x ?? 0, y: n.position?.y ?? 0 },
       data: {
         ...n.data,
-        // Reset runtime state
         status: 'idle', lastOutput: null, _progress: 0,
         _lastRunOutput: null,
         buildMode: false, onDelete: onDelNode,
       },
+      // Restore parent relationship for subflow children
+      ...(n.parentId && { parentId: n.parentId }),
+      ...(n.extent   && { extent:   n.extent   }),
     }
-    // Restore saved size: prefer style.width/height, fall back to node.width/height
+    // Restore saved size
     if (n.style?.width || n.width) {
       node.style = {
         ...(n.style ?? {}),
@@ -91,6 +93,7 @@ export default function App() {
   const [showCatalog,  setShowCatalog]  = useState(false)
   const [pipelineName, setPipelineName] = useState('')
   const [unsaved,      setUnsaved]      = useState(false)
+  const [selectedSubflowId, setSelectedSubflowId] = useState(null)
   const [saveFlash,    setSaveFlash]    = useState(false) // brief green flash after save
 
   const runAbort = useRef(false)
@@ -103,10 +106,10 @@ export default function App() {
   // ── delete handlers (stable refs needed for hydration) ──
   const onDelEdge = useCallback(id => setEdges(eds => eds.filter(e => e.id !== id)), [])
   const onDelNode = useCallback(id => {
-    setNodes(nds => nds.filter(n => n.id !== id))
+    // When deleting a subflow, also remove its child nodes
+    setNodes(nds => nds.filter(n => n.id !== id && n.parentId !== id))
     setEdges(eds => eds.filter(e => e.source !== id && e.target !== id))
   }, [])
-
 
   /* ── catalog: save ── */
   const handleSave = useCallback((name, nodesOverride, edgesOverride) => {
@@ -125,6 +128,18 @@ export default function App() {
     if (pipelineName) handleSave(pipelineName)
     else setShowCatalog(true)
   }, [pipelineName, handleSave])
+
+  /* ── catalog: load ── */
+  const handleLoad = useCallback(pipeline => {
+    runAbort.current = true
+    setRunning(false)
+    setBuildMode(false)
+    const { nodes: n, edges: e } = hydratePipeline(pipeline, onDelNode, onDelEdge)
+    setNodes(n); setEdges(e)
+    setPipelineName(pipeline.name)
+    setUnsaved(false)
+    setLog([{msg:`Loaded "${pipeline.name}"`,type:'info'}])
+  }, [onDelNode, onDelEdge])
 
   // Ctrl/Cmd+S keyboard shortcut
   useEffect(() => {
@@ -154,7 +169,15 @@ export default function App() {
   }, []) // eslint-disable-line
 
   /* ── ReactFlow ── */
-  const onNodesChange = useCallback(c => setNodes(n => applyNodeChanges(c, n)), [])
+  const onNodesChange = useCallback(c => {
+    setNodes(prev => {
+      const next = applyNodeChanges(c, prev)
+      // Track which subflow (if any) is currently selected
+      const sel = next.find(n => n.type === 'subflow' && n.selected)
+      setSelectedSubflowId(sel?.id ?? null)
+      return next
+    })
+  }, [])
   const onEdgesChange = useCallback(c => setEdges(e => applyEdgeChanges(c, e)), [])
 
   const onConnect = useCallback(params => {
@@ -175,19 +198,37 @@ export default function App() {
   }, [onDelNode, onDelEdge])
 
   /* ── add node from palette ── */
-  const onAddNode = useCallback(tmpl => {
+  const onAddNode = useCallback((tmpl, parentId) => {
     if (tmpl.type === 'group') {
       setNodes(nds => [...nds, {
         id:uid_(), type:'group',
-        position:{x:80+Math.random()*100,y:80+Math.random()*80},
+        position:{x:80+Math.random()*100, y:80+Math.random()*80},
         style:{width:260,height:200},
         data:{label:tmpl.gLabel,bg:tmpl.bg,border:tmpl.border,labelColor:tmpl.lc,buildMode:true,onDelete:onDelNode},
       }])
-    } else {
+    } else if (tmpl.type === 'subflow') {
       setNodes(nds => [...nds, {
-        id:uid_(), type:'pipeline',
-        position:{x:180+Math.random()*200,y:120+Math.random()*160},
+        id:uid_(), type:'subflow',
+        position:{x:120+Math.random()*80, y:100+Math.random()*60},
+        style:{width:320,height:220},
         data:{
+          label:      tmpl.gLabel,
+          bg:         tmpl.bg,
+          border:     tmpl.border,
+          labelColor: tmpl.lc,
+          buildMode:  true, onDelete: onDelNode,
+        },
+      }])
+    } else {
+      // Pipeline node — optionally placed inside a subflow parent
+      const nodeId = uid_()
+      const base = {
+        id:       nodeId,
+        type:     'pipeline',
+        position: parentId
+          ? { x: 30 + Math.random()*60, y: 50 + Math.random()*40 }  // relative to parent
+          : { x: 180+Math.random()*200, y:120+Math.random()*160 },
+        data: {
           nodeDefId:  tmpl.id,
           title:      tmpl.title,
           icon:       tmpl.icon,
@@ -196,21 +237,14 @@ export default function App() {
           controls:   tmpl.defaultControls.map(c=>({...c})),
           buildMode:  true, onDelete: onDelNode,
         },
-      }])
+      }
+      if (parentId) {
+        base.parentId = parentId
+        base.extent   = 'parent'
+      }
+      setNodes(nds => [...nds, base])
     }
   }, [onDelNode])
-
-  /* ── catalog: load ── */
-  const handleLoad = useCallback(pipeline => {
-    runAbort.current = true
-    setRunning(false)
-    setBuildMode(false)
-    const { nodes: n, edges: e } = hydratePipeline(pipeline, onDelNode, onDelEdge)
-    setNodes(n); setEdges(e)
-    setPipelineName(pipeline.name)
-    setUnsaved(false)
-    setLog([{msg:`Loaded "${pipeline.name}"`,type:'info'}])
-  }, [onDelNode, onDelEdge])
 
   /* ── run helpers ── */
   const addLog = useCallback((msg,type) => setLog(l=>[...l.slice(-13),{msg,type}]),[])
@@ -409,7 +443,7 @@ export default function App() {
 
       {/* ── Body ── */}
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
-        {buildMode && <NodePalette onAddNode={onAddNode} />}
+        {buildMode && <NodePalette onAddNode={onAddNode} selectedSubflowId={selectedSubflowId} />}
 
         <div style={{flex:1,position:'relative'}}>
           <ReactFlow

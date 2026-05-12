@@ -34,11 +34,12 @@ function cleanNode(node) {
     id:       node.id,
     type:     node.type,
     position: { x: node.position?.x ?? 0, y: node.position?.y ?? 0 },
-    // Preserve explicit width/height from style (set by NodeResizer / GroupNode)
     style:    node.style ? { ...node.style } : undefined,
-    // Also preserve measured/internal width-height if ReactFlow stored them
     width:    node.width,
     height:   node.height,
+    // Preserve subflow child relationship
+    ...(node.parentId && { parentId: node.parentId }),
+    ...(node.extent   && { extent:   node.extent   }),
     data:     cleanedData,
   }
 }

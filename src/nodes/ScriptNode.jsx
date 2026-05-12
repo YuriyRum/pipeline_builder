@@ -4,7 +4,7 @@
  * Demonstrates a fully custom renderBody with a code editor textarea.
  */
 
-import { MiniTextarea } from '../NodeCard.jsx'
+import { MiniTextarea } from './NodeCard.jsx'
 
 const DEFAULT_SCRIPT = `// input: data passed from upstream node
 // return your transformed data

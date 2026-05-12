@@ -7,8 +7,8 @@
  */
 import { memo, useCallback, useState } from 'react'
 import { Handle, Position, useReactFlow } from 'reactflow'
-import NodeDocsDialog   from './NodeDocsDialog.jsx'
-import NodeResultDialog from './NodeResultDialog.jsx'
+import NodeDocsDialog   from '../NodeDocsDialog.jsx'
+import NodeResultDialog from '../NodeResultDialog.jsx'
 
 const STATUS_COLORS = {
   idle:    'var(--muted)',

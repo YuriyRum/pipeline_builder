@@ -32,8 +32,11 @@ import OutputDBNode      from './OutputDBNode.js'
 import NotifierNode      from './NotifierNode.js'
 import HttpExportNode    from './HttpExportNode.js'
 import TableViewNode     from './TableViewNode.jsx'
+import UserInputNode from './workflowNodes/UserInputNode.js'
 
 const REGISTRY = [
+  // Workflow
+  UserInputNode,
   // ── Ingestion ──────────────────────────────
   FileUploadNode,
   TxtUploadNode,
