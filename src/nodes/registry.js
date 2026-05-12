@@ -28,6 +28,8 @@ import DataTransformNode from './DataTransformNode.js'
 import TimerNode         from './TimerNode.jsx'
 import ScriptNode        from './ScriptNode.jsx'
 import { IfNodeDef }     from './IfNode.jsx'
+import BackendCallNode   from './BackendCallNode.js'
+import LogOutputNode     from './LogOutputNode.js'
 import { LoopNodeDef }   from './LoopNode.jsx'
 
 import OutputDBNode      from './OutputDBNode.js'
@@ -48,6 +50,7 @@ const REGISTRY = [
   LoopNodeDef,
 
   // ── Processing ─────────────────────────────
+  BackendCallNode,
   CsvParserNode,
   DataTransformNode,
   TransformerNode,
@@ -58,6 +61,7 @@ const REGISTRY = [
 
   // ── Output ─────────────────────────────────
   TableViewNode,
+  LogOutputNode,
   OutputDBNode,
   NotifierNode,
   HttpExportNode,
