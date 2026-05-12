@@ -2,11 +2,12 @@ import { useState } from 'react'
 import REGISTRY from './nodes/registry.js'
 
 const GROUP_META = {
-  ingestion:  { label: 'Ingestion',  dot: '#4A90D9' },
-  processing: { label: 'Processing', dot: '#E20074'  },
-  output:     { label: 'Output',     dot: '#F5A623'  },
+  control:    { label: 'Control Flow', dot: '#F5A623' },
+  ingestion:  { label: 'Ingestion',    dot: '#4A90D9' },
+  processing: { label: 'Processing',   dot: '#E20074' },
+  output:     { label: 'Output',       dot: '#F5A623' },
 }
-const GROUP_ORDER = ['ingestion', 'processing', 'output']
+const GROUP_ORDER = ['control', 'ingestion', 'processing', 'output']
 
 const PRESET_COLORS = [
   { bg:'rgba(226,0,116,0.08)',   border:'#E20074', label:'#E20074', name:'Magenta' },

@@ -27,22 +27,25 @@ import CsvParserNode     from './CsvParserNode.js'
 import DataTransformNode from './DataTransformNode.js'
 import TimerNode         from './TimerNode.jsx'
 import ScriptNode        from './ScriptNode.jsx'
+import { IfNodeDef }     from './IfNode.jsx'
+import { LoopNodeDef }   from './LoopNode.jsx'
 
 import OutputDBNode      from './OutputDBNode.js'
 import NotifierNode      from './NotifierNode.js'
 import HttpExportNode    from './HttpExportNode.js'
 import TableViewNode     from './TableViewNode.jsx'
-import UserInputNode from './workflowNodes/UserInputNode.js'
 
 const REGISTRY = [
-  // Workflow
-  UserInputNode,
   // ── Ingestion ──────────────────────────────
   FileUploadNode,
   TxtUploadNode,
   FileSourceNode,
   ApiStreamNode,
   DatabaseNode,
+
+  // ── Control flow ───────────────────────────
+  IfNodeDef,
+  LoopNodeDef,
 
   // ── Processing ─────────────────────────────
   CsvParserNode,
